@@ -3,29 +3,23 @@ FROM node:20-alpine AS builder
 RUN apk add --no-cache openssl
 
 WORKDIR /app
-
 RUN npm install -g pnpm@9.15.4
 
-# Cache des dépendances
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
 RUN pnpm install --no-frozen-lockfile
 
-# Copie du code
 COPY . .
 
-# On force la génération du client Prisma dans le dossier node_modules du backend
+# On génère Prisma
 RUN cd backend && npx prisma generate
 
-# Build avec les variables d'environnement (NestJS en a parfois besoin pour valider la config)
-ARG DATABASE_URL
-ENV DATABASE_URL=${DATABASE_URL}
-ARG JWT_SECRET
-ENV JWT_SECRET=${JWT_SECRET}
+# DIAGNOSTIC : On lance tsc manuellement pour voir les erreurs dans les logs Coolify
+RUN cd backend && ./node_modules/.bin/tsc --noEmit || true
 
-# Lancement du build du backend
+# Build du backend
 RUN pnpm --filter backend build
 
 # ─── Runner ───────────────────────────────────────────────
