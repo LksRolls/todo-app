@@ -145,7 +145,7 @@ export function TaskList({ groupId, onTaskChange }: TaskListProps) {
       {activeTasks.length === 0 && (
         <div className="text-center py-12 animate-fade-in-up">
           <p className="text-text-secondary">
-            Aucune t&acirc;che active. Ajoutez-en une ci-dessus.
+            Aucune tâche active. Ajoutez-en une ci-dessus.
           </p>
         </div>
       )}
@@ -170,7 +170,7 @@ export function TaskList({ groupId, onTaskChange }: TaskListProps) {
             >
               <polyline points="9,18 15,12 9,6" />
             </svg>
-            Termin&eacute;es ({completedTasks.length})
+            Terminées ({completedTasks.length})
           </button>
 
           {showCompleted && (

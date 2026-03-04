@@ -20,13 +20,14 @@ export default function AppPage() {
       const res = await api.get('/groups');
       const data = res.data.data;
       setGroups(data);
-      if (!selectedGroupId && data.length > 0) {
-        setSelectedGroupId(data[0].id);
-      }
+      setSelectedGroupId((prev) => {
+        if (!prev && data.length > 0) return data[0].id;
+        return prev;
+      });
     } catch {
       // handled by interceptor
     }
-  }, [selectedGroupId]);
+  }, []);
 
   useEffect(() => {
     fetchGroups();

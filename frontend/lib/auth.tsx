@@ -23,7 +23,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
-  setTokenFromUrl: (token: string) => void;
+  setTokenFromUrl: (token: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -102,9 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  const setTokenFromUrl = (token: string) => {
+  const setTokenFromUrl = async (token: string) => {
     setAccessToken(token);
-    fetchMe();
+    await fetchMe();
   };
 
   return (

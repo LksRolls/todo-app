@@ -33,10 +33,10 @@ export default function RegisterPage() {
   return (
     <div className="bg-bg-surface border border-border rounded-card p-8">
       <h1 className="font-heading text-2xl font-bold text-text-primary mb-1">
-        Cr&eacute;er un compte
+        Créer un compte
       </h1>
       <p className="text-text-secondary text-sm mb-8">
-        Rejoignez-nous pour organiser vos t&acirc;ches.
+        Rejoignez-nous pour organiser vos tâches.
       </p>
 
       {error && (
@@ -133,7 +133,7 @@ export default function RegisterPage() {
       </a>
 
       <p className="text-center text-sm text-text-secondary mt-6">
-        D&eacute;j&agrave; un compte ?{' '}
+        Déjà un compte ?{' '}
         <Link
           href="/login"
           className="text-accent hover:text-accent-hover transition-colors"

@@ -188,7 +188,7 @@ export function HistoryCalendar() {
           </h3>
           {popoverTasks.length === 0 ? (
             <p className="text-text-secondary text-sm">
-              Aucune t&acirc;che termin&eacute;e ce jour.
+              Aucune tâche terminée ce jour.
             </p>
           ) : (
             <div className="space-y-2">
@@ -208,7 +208,7 @@ export function HistoryCalendar() {
                     onClick={() => reactivate(task.taskId)}
                     className="text-xs text-accent hover:text-accent-hover transition-colors"
                   >
-                    R&eacute;activer
+                    Réactiver
                   </button>
                 </div>
               ))}

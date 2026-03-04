@@ -130,7 +130,7 @@ export default function LoginPage() {
           href="/register"
           className="text-accent hover:text-accent-hover transition-colors"
         >
-          Cr&eacute;er un compte
+          Créer un compte
         </Link>
       </p>
     </div>
