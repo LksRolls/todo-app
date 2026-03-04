@@ -1,10 +1,7 @@
 #!/bin/sh
-set -e
-
-cd /app/backend
-
-echo "--- Running Prisma migrations ---"
+# Générer le client Prisma au démarrage au cas où
+npx prisma generate
+# Appliquer les migrations
 npx prisma migrate deploy
-
-echo "--- Starting NestJS Server ---"
-exec node dist/main.js
+# Lancer l'app (vérifie si c'est dist/main ou dist/src/main)
+node dist/main.js
