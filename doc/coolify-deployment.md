@@ -1,254 +1,347 @@
-# Déploiement avec Coolify + GitHub
+# Coolify — Deployer un nouveau site
 
-Coolify est une plateforme d'hébergement self-hosted (alternative open-source à Heroku / Railway). Ce guide couvre l'installation de Coolify sur un VPS et le déploiement de l'application Todo App depuis GitHub.
+Guide technique pour mettre en place un nouveau site/application sur une instance Coolify deja operationnelle.
 
 ---
 
-## 1. Prérequis
+## 1. Creer un projet
 
-| Élément | Minimum recommandé |
+Un **Projet** dans Coolify est un conteneur logique qui regroupe les ressources liees a une meme application (frontend, backend, base de donnees, etc.).
+
+1. Menu lateral → **Projects** → **+ Add**
+2. Donner un nom (ex. `todo-app`, `portfolio`, `api-client`)
+3. Un projet peut contenir plusieurs **Environments** (production, staging, dev)
+   - Par defaut : un seul environment `production`
+   - Pour ajouter un env : dans le projet → **+ Add Environment**
+4. Cliquer sur l'environment pour y ajouter des ressources
+
+---
+
+## 2. Ajouter une ressource
+
+Dans un environment, cliquer **+ Add New Resource**. Coolify propose plusieurs types :
+
+| Type | Usage |
 |---|---|
-| VPS / serveur | Ubuntu 22.04 LTS, 2 vCPU, 2 Go RAM |
-| Accès | SSH root ou sudo |
-| Domaine | Un domaine pointant sur l'IP du VPS (ex. `todo.mondomaine.fr`) |
-| GitHub | Repo public ou accès token pour repo privé |
+| **Application** | Site web, API, app Node/Python/Go/etc. |
+| **Database** | PostgreSQL, MySQL, MariaDB, MongoDB, Redis |
+| **Service** | Services preconfigures (Plausible, Gitea, WordPress, etc.) |
 
 ---
 
-## 2. Installation de Coolify
+## 3. Deployer une Application
 
-### 2.1 Sur le VPS (via SSH)
+### 3.1 Choisir la source
 
-```bash
-# Se connecter au VPS
-ssh root@<IP_DU_VPS>
+| Source | Quand l'utiliser |
+|---|---|
+| **GitHub App** | Repo GitHub (recommande — auto-deploy via webhook) |
+| **GitHub (PAT)** | Repo GitHub via Personal Access Token |
+| **GitLab** | Repo GitLab |
+| **Bitbucket** | Repo Bitbucket |
+| **Public Repository** | Repo public sans authentification |
+| **Docker Image** | Image deja construite sur Docker Hub / GHCR |
+| **Docker Compose** | Deployer un fichier `docker-compose.yml` complet |
 
-# Lancer le script d'installation officiel
-curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
-```
+### 3.2 Configurer le repo (si source Git)
 
-L'installation prend 2 à 5 minutes et installe Docker, Docker Compose, et Coolify.
-
-### 2.2 Accéder à l'interface
-
-Coolify expose son interface sur le port **8000** par défaut :
-
-```
-http://<IP_DU_VPS>:8000
-```
-
-Créer un compte admin lors du premier accès.
-
-> **Conseil sécurité** : configurer un reverse proxy (Traefik, fourni par Coolify) et activer HTTPS dès que possible.
+| Champ | Description |
+|---|---|
+| **Repository** | Selectionner le repo |
+| **Branch** | Branche a deployer (`main`, `master`, `production`) |
+| **Root Directory** | Sous-dossier du repo si monorepo (ex. `frontend`, `backend`) |
+| **Build Pack** | Comment Coolify construit l'image (voir section 4) |
 
 ---
 
-## 3. Connecter GitHub à Coolify
+## 4. Build Packs — Comment Coolify construit votre app
 
-### 3.1 Créer une GitHub App (recommandé)
+### 4.1 Nixpacks (par defaut)
 
-1. Dans Coolify → **Settings** → **Source** → **+ Add** → choisir **GitHub App**
-2. Suivre le flux OAuth : Coolify crée automatiquement une GitHub App sur ton compte
-3. Sélectionner les repos à autoriser (ou "All repositories")
+- **Quoi** : detection automatique du langage/framework, genere un Dockerfile en interne
+- **Quand l'utiliser** : projets standards (Node.js, Python, Go, Rust, PHP, Ruby, etc.)
+- **Avantage** : zero config, Coolify detecte `package.json`, `requirements.txt`, `go.mod`, etc.
+- **Custom** : on peut ajouter des variables dans **Build Settings** :
+  - `NIXPACKS_BUILD_CMD` : override la commande de build
+  - `NIXPACKS_START_CMD` : override la commande de demarrage
+  - `NIXPACKS_PKGS` : paquets systeme supplementaires
 
-### 3.2 Alternative : Personal Access Token
+```
+Exemple : projet Next.js
+Coolify detecte package.json → installe Node → run build → start
+Aucune config necessaire.
+```
 
-1. Sur GitHub → **Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens**
-2. Permissions nécessaires : `Contents: Read`, `Webhooks: Read & Write`
-3. Dans Coolify → **Settings** → **Source** → **+ Add** → **GitHub** → coller le token
+### 4.2 Dockerfile
+
+- **Quoi** : Coolify utilise un `Dockerfile` present dans le repo
+- **Quand l'utiliser** : besoin de controle fin sur le build (multi-stage, deps systeme specifiques, etc.)
+- **Config** :
+  - **Dockerfile Location** : chemin relatif au root directory (defaut : `Dockerfile`)
+  - Les build args et variables d'env sont injectes automatiquement
+
+```
+Exemple : monorepo avec backend/Dockerfile
+Root Directory = backend
+Build Pack = Dockerfile
+Coolify build depuis backend/Dockerfile
+```
+
+### 4.3 Docker Compose
+
+- **Quoi** : deploie un fichier `docker-compose.yml` tel quel
+- **Quand l'utiliser** :
+  - Application multi-conteneurs dans un seul fichier (app + db + redis + worker)
+  - Migration d'un setup Docker Compose existant
+  - Besoin de networks/volumes partages entre services
+- **Config** :
+  - **Docker Compose Location** : chemin du fichier (defaut : `docker-compose.yml`)
+  - Les services du compose deviennent des conteneurs dans Coolify
+  - Definir quel service est le "principal" (celui qui recoit le domaine/port)
+
+```yaml
+# Exemple : docker-compose.yml pour une app full-stack
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+  backend:
+    build: ./backend
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://user:pass@db:5432/app
+  db:
+    image: postgres:16-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+```
+
+### 4.4 Docker Image
+
+- **Quoi** : pull et run une image Docker deja construite
+- **Quand l'utiliser** : image pre-built sur Docker Hub, GHCR, ou registry prive
+- **Config** :
+  - **Image** : `nginx:alpine`, `ghcr.io/user/app:latest`, etc.
+  - **Registry** : Docker Hub (defaut), ou ajouter un registry custom dans Settings
+
+### Comparatif rapide
+
+| Critere | Nixpacks | Dockerfile | Docker Compose | Docker Image |
+|---|---|---|---|---|
+| Config necessaire | Aucune | Ecrire un Dockerfile | Ecrire un compose.yml | Aucune |
+| Controle du build | Faible | Total | Total | N/A (pre-built) |
+| Multi-service | Non | Non | Oui | Non |
+| Ideal pour | Prototypes, projets standards | Prod, builds custom | Apps multi-containers | Services tiers, images pre-built |
 
 ---
 
-## 4. Créer les services dans Coolify
+## 5. Configuration de l'application
 
-L'application est un monorepo avec 3 services :
-- **PostgreSQL** (base de données)
-- **Backend** (NestJS — API)
-- **Frontend** (Next.js)
+### 5.1 General
 
-### 4.1 Base de données PostgreSQL
+| Champ | Description |
+|---|---|
+| **Name** | Nom affiche dans Coolify |
+| **Domain** | Domaine(s) associe(s) — ex. `app.mondomaine.fr` |
+| **Port** | Port expose par le conteneur (3000, 8080, etc.) |
 
-1. **Projects** → **+ New Project** → nommer le projet (ex. `todo-app`)
-2. Dans le projet → **+ New Resource** → **Database** → **PostgreSQL**
-3. Configurer :
-   - **Name** : `todo-db`
-   - **Version** : 16
-   - **User / Password / Database** : noter les valeurs générées
-4. Cliquer **Start** — Coolify crée le conteneur PostgreSQL
+### 5.2 Environment Variables
 
-Coolify génère une **Internal URL** de connexion (accessible uniquement entre services sur le même réseau) :
+- Onglet **Environment Variables** dans la ressource
+- Ajouter les variables une par une ou coller en bulk (format `KEY=value`)
+- Option **Build Variable** : disponible uniquement au build (ex. `NEXT_PUBLIC_API_URL`)
+- Option **Preview** : uniquement pour les deployments de preview (pull requests)
+- Les variables sont injectees dans le conteneur au runtime
+
+### 5.3 Build Settings
+
+| Champ | Description |
+|---|---|
+| **Base Directory** | Racine du projet dans le repo |
+| **Build Command** | Override (sinon detecte par Nixpacks ou Dockerfile) |
+| **Install Command** | Override la commande d'install des deps |
+| **Start Command** | Override la commande de demarrage |
+
+### 5.4 Network
+
+- **Ports Exposes** : mapper les ports du conteneur vers l'exterieur
+- Par defaut Coolify gere Traefik pour le routing HTTP/HTTPS
+- Les services dans le meme projet partagent un reseau Docker interne
+  → un backend peut appeler `http://db:5432` sans exposer le port publiquement
+
+### 5.5 Persistent Storage (Volumes)
+
+- Onglet **Storages** → **+ Add**
+- Definir le chemin dans le conteneur (ex. `/data`, `/var/lib/postgresql/data`)
+- Coolify cree un volume Docker nomme automatiquement
+- Les donnees persistent entre les redeployments
+
+---
+
+## 6. Domaines et HTTPS
+
+### 6.1 Pointer le DNS
+
+Chez ton registrar (OVH, Cloudflare, Gandi...) :
+
 ```
-postgresql://USER:PASSWORD@todo-db:5432/todo_db
+Type    Nom                  Valeur
+A       app.mondomaine.fr    <IP_DU_VPS>
+A       api.mondomaine.fr    <IP_DU_VPS>
 ```
 
-### 4.2 Backend NestJS
+Ou avec un wildcard :
+```
+A       *.mondomaine.fr      <IP_DU_VPS>
+```
 
-1. **+ New Resource** → **Application** → **GitHub** → sélectionner le repo `todo-app`
-2. Configuration :
-   - **Branch** : `master` (ou `main`)
-   - **Build Pack** : `Dockerfile` (voir section 5) ou **Nixpacks** (détection automatique)
-   - **Root Directory** : `backend`
-   - **Port** : `3001`
-3. **Environment Variables** → ajouter :
+### 6.2 Configurer dans Coolify
+
+1. Dans la ressource → champ **Domain** → saisir `https://app.mondomaine.fr`
+2. Coolify configure automatiquement Traefik + Let's Encrypt
+3. Le certificat SSL est genere et renouvele automatiquement
+4. Pour plusieurs domaines : separer par des virgules
    ```
-   DATABASE_URL=postgresql://USER:PASSWORD@todo-db:5432/todo_db
-   JWT_ACCESS_SECRET=<valeur_securisee>
-   JWT_REFRESH_SECRET=<valeur_securisee>
-   GOOGLE_CLIENT_ID=<ton_client_id>
-   GOOGLE_CLIENT_SECRET=<ton_client_secret>
-   GOOGLE_CALLBACK_URL=https://api.todo.mondomaine.fr/auth/google/callback
-   PORT=3001
-   NODE_ENV=production
+   https://app.mondomaine.fr, https://www.app.mondomaine.fr
    ```
-4. **Domain** : `api.todo.mondomaine.fr`
-5. Cliquer **Save** puis **Deploy**
 
-### 4.3 Frontend Next.js
+### 6.3 Redirection www
 
-1. **+ New Resource** → **Application** → **GitHub** → même repo
-2. Configuration :
-   - **Branch** : `master`
-   - **Root Directory** : `frontend`
-   - **Port** : `3000`
-3. **Environment Variables** :
-   ```
-   NEXT_PUBLIC_API_URL=https://api.todo.mondomaine.fr
-   NODE_ENV=production
-   ```
-4. **Domain** : `todo.mondomaine.fr`
-5. Cliquer **Save** puis **Deploy**
+Coolify gere la redirection automatiquement si les deux domaines (avec et sans www) sont ajoutes.
 
 ---
 
-## 5. Dockerfiles de production (optionnel mais recommandé)
+## 7. Deploiement automatique (CI/CD)
 
-Si Nixpacks ne fonctionne pas correctement, ajouter des Dockerfiles manuels.
+### 7.1 Auto Deploy (recommande)
 
-### `backend/Dockerfile`
+Dans la ressource → onglet **General** → activer **Auto Deploy**
 
-```dockerfile
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json pnpm-lock.yaml ./
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
-COPY . .
-RUN pnpm prisma generate
-RUN pnpm build
+Chaque push sur la branche configuree declenche un redeploiement automatique.
+Coolify installe automatiquement le webhook sur GitHub via la GitHub App.
 
-FROM node:20-alpine AS runner
-WORKDIR /app
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/package.json ./
-EXPOSE 3001
-CMD ["node", "dist/main"]
+### 7.2 Webhook manuel
+
+Si la GitHub App n'est pas utilisee :
+1. Ressource → **Webhooks** → copier l'URL
+2. GitHub → repo → **Settings** → **Webhooks** → **Add webhook**
+   - Payload URL : URL copiee
+   - Content type : `application/json`
+   - Secret : fourni par Coolify
+   - Events : `Push events`
+
+### 7.3 Preview Deployments (Pull Requests)
+
+- Activer dans la ressource → **Preview Deployments**
+- Chaque PR ouverte genere un deploiement temporaire avec une URL unique
+- Le deploiement est supprime automatiquement a la fermeture de la PR
+
+---
+
+## 8. Bases de donnees
+
+### 8.1 Creer une base
+
+1. Projet → Environment → **+ Add New Resource** → **Database**
+2. Choisir le moteur : PostgreSQL, MySQL, MariaDB, MongoDB, Redis, etc.
+3. Coolify genere automatiquement :
+   - User / Password / Database name
+   - **Internal URL** : accessible uniquement par les autres services du projet
+   - **Public URL** : optionnelle, a activer si besoin d'acces externe
+
+### 8.2 Connexion depuis une app
+
+Utiliser l'**Internal URL** generee par Coolify dans les variables d'env de l'app :
+
+```
+DATABASE_URL=postgresql://USER:PASSWORD@nom-du-service:5432/nom_db
 ```
 
-### `frontend/Dockerfile`
+Le `nom-du-service` est le nom Docker du conteneur (visible dans Coolify).
 
-```dockerfile
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json pnpm-lock.yaml ./
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
-COPY . .
-RUN pnpm build
+### 8.3 Backups
 
-FROM node:20-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
-EXPOSE 3000
-CMD ["node", "server.js"]
+- Onglet **Backups** dans la ressource database
+- Configurer une frequence (toutes les heures, tous les jours, etc.)
+- Destination : locale ou S3-compatible (Minio, AWS S3, Backblaze B2)
+
+---
+
+## 9. Cas courants
+
+### Site statique (HTML/CSS/JS)
+
+```
+Source : GitHub repo
+Build Pack : Nixpacks ou Dockerfile
+Si Nixpacks : Coolify detecte et sert avec un serveur statique
+Si Dockerfile :
+  FROM nginx:alpine
+  COPY . /usr/share/nginx/html
+  EXPOSE 80
+Port : 80
 ```
 
-> Pour le standalone mode Next.js, ajouter dans `frontend/next.config.mjs` :
-> ```js
-> output: 'standalone'
-> ```
+### API Node.js (Express / NestJS / Fastify)
 
----
-
-## 6. Migrations Prisma au démarrage
-
-Ajouter un script de démarrage dans le backend pour lancer les migrations automatiquement :
-
-### `backend/start.sh`
-
-```bash
-#!/bin/sh
-npx prisma migrate deploy
-node dist/main
+```
+Source : GitHub repo
+Build Pack : Nixpacks (auto-detect package.json)
+Port : celui defini dans votre app (3001, 8080, etc.)
+Env vars : DATABASE_URL, JWT_SECRET, etc.
 ```
 
-Dans le Dockerfile, remplacer le `CMD` final :
-```dockerfile
-COPY start.sh ./
-RUN chmod +x start.sh
-CMD ["./start.sh"]
+### Next.js / Nuxt.js
+
+```
+Source : GitHub repo
+Build Pack : Nixpacks (detecte automatiquement)
+Port : 3000
+Si monorepo : Root Directory = frontend
+Build vars : NEXT_PUBLIC_API_URL=https://api.mondomaine.fr
 ```
 
----
+### WordPress
 
-## 7. Déploiement continu (CI/CD)
-
-Coolify supporte les **webhooks GitHub** pour redéployer automatiquement à chaque push.
-
-### Activer le webhook automatique
-
-Dans chaque service Coolify :
-1. Aller dans l'onglet **Webhooks**
-2. Copier l'URL du webhook Coolify
-3. Sur GitHub → repo → **Settings** → **Webhooks** → **Add webhook**
-   - **Payload URL** : URL copiée depuis Coolify
-   - **Content type** : `application/json`
-   - **Events** : `Just the push event`
-
-Ou activer directement depuis Coolify → **Settings** → **Auto Deploy** → ✅
-
----
-
-## 8. HTTPS / SSL
-
-Coolify intègre **Traefik** comme reverse proxy avec **Let's Encrypt** pour le SSL.
-
-1. S'assurer que le domaine pointe sur l'IP du VPS (DNS A record)
-2. Dans chaque service Coolify → **Domain** → activer **HTTPS**
-3. Coolify génère et renouvelle le certificat automatiquement
-
----
-
-## 9. Vérification du déploiement
-
-```bash
-# Vérifier les logs du backend
-# Coolify → Backend service → Logs
-
-# Tester l'API
-curl https://api.todo.mondomaine.fr/api/auth/me
-
-# Tester le frontend
-open https://todo.mondomaine.fr
+```
+Source : ne pas utiliser un repo
+Type : Service → WordPress (preconfigure)
+Coolify installe WordPress + MySQL automatiquement
+Configurer le domaine + HTTPS
 ```
 
+### App multi-services (monorepo)
+
+Creer **une ressource par service** dans le meme projet :
+
+```
+Projet: todo-app
+├── Resource 1 : PostgreSQL (Database)
+├── Resource 2 : Backend (Application, Root Dir: backend, Port: 3001)
+└── Resource 3 : Frontend (Application, Root Dir: frontend, Port: 3000)
+```
+
+Chaque service a ses propres env vars, domaine, et build settings.
+Ils partagent le meme reseau Docker interne.
+
 ---
 
-## 10. Récapitulatif des URLs
+## 10. Checklist nouveau site
 
-| Service | URL locale (dev) | URL production |
-|---|---|---|
-| Frontend | `http://localhost:3000` | `https://todo.mondomaine.fr` |
-| Backend API | `http://localhost:3001/api` | `https://api.todo.mondomaine.fr/api` |
-| PostgreSQL | `localhost:5432` | Interne Coolify uniquement |
-| Coolify UI | — | `http://<IP>:8000` |
-
----
-
-## Ressources
-
-- [Documentation Coolify](https://coolify.io/docs)
-- [Coolify GitHub](https://github.com/coollabsio/coolify)
-- [Prisma Migrate Deploy](https://www.prisma.io/docs/orm/reference/prisma-cli-reference#migrate-deploy)
+- [ ] DNS : enregistrement A pointant sur l'IP du VPS
+- [ ] Projet cree dans Coolify
+- [ ] Source connectee (GitHub App ou PAT)
+- [ ] Build Pack choisi (Nixpacks / Dockerfile / Compose)
+- [ ] Root Directory configure (si monorepo)
+- [ ] Port correct
+- [ ] Variables d'environnement renseignees
+- [ ] Domaine configure avec `https://`
+- [ ] Premier deploy lance et reussi (verifier les logs)
+- [ ] Auto Deploy active
+- [ ] Backups DB configures (si applicable)
+- [ ] Certificat SSL actif (verifier le cadenas dans le navigateur)
