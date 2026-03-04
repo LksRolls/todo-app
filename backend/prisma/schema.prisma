@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  passwordHash String?
+  googleId     String?       @unique
+  displayName  String
+  avatarUrl    String?
+  refreshToken String?
+  groups       Group[]
+  tasks        Task[]
+  history      TaskHistory[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Group {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  color     String        @default("#2d6a4f")
+  order     Int           @default(0)
+  tasks     Task[]
+  history   TaskHistory[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model Task {
+  id          String        @id @default(cuid())
+  groupId     String
+  group       Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  status      TaskStatus    @default(ACTIVE)
+  priority    Priority      @default(MEDIUM)
+  order       Int           @default(0)
+  completedAt DateTime?
+  history     TaskHistory[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model TaskHistory {
+  id        String        @id @default(cuid())
+  taskId    String
+  task      Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId   String
+  group     Group         @relation(fields: [groupId], references: [id])
+  groupName String
+  taskTitle String
+  action    HistoryAction
+  timestamp DateTime      @default(now())
+}
+
+enum TaskStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum HistoryAction {
+  COMPLETED
+  REACTIVATED
+}
