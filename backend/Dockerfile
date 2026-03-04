@@ -11,6 +11,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY backend/ ./backend/
 
+# On génère Prisma (généralement envoyé dans node_modules/.prisma)
 RUN pnpm --filter backend exec prisma generate
 RUN pnpm --filter backend build
 
@@ -24,21 +25,21 @@ ENV NODE_ENV=production
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY backend/package.json ./backend/
 
-# On réinstalle les dépendances de prod à la racine pour les symlinks
+# On installe les deps de prod ET on régénère prisma ici
 RUN pnpm install --frozen-lockfile --prod
 
-# On récupère le code compilé
+# Copie des fichiers buildés
 COPY --from=builder /app/backend/dist ./backend/dist
 COPY --from=builder /app/backend/prisma ./backend/prisma
-# IMPORTANT : On récupère aussi les types générés de Prisma
-COPY --from=builder /app/backend/node_modules/.prisma ./backend/node_modules/.prisma
 
 # Script de démarrage
 COPY backend/start.sh ./backend/start.sh
 RUN chmod +x ./backend/start.sh
 
-# On se place dans le dossier du backend pour l'exécution
+# On demande à Prisma de se régénérer une dernière fois pour être sûr
+# que le client est présent dans les node_modules du runner
+RUN pnpm --filter backend exec prisma generate
+
 WORKDIR /app/backend
 EXPOSE 3001
-
 CMD ["./start.sh"]
