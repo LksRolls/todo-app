@@ -1,30 +1,39 @@
+# ─── Builder ──────────────────────────────────────────────
 FROM node:20-alpine AS builder
-RUN npm install -g pnpm
+
+# Force l'installation de Prisma 5 et pnpm
+RUN npm install -g pnpm@9.15.4 prisma@5.22.0
+
 WORKDIR /app
 
+# Copie des fichiers de configuration pour le cache
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
-RUN pnpm install --frozen-lockfile
+# Installation des dépendances (sans --frozen-lockfile pour éviter les blocages)
+RUN pnpm install
 
+# Copie du code backend
 COPY backend/ ./backend/
-RUN pnpm --filter backend exec prisma generate
+
+# Génération Prisma explicite avec npx (pour garantir la v5)
+RUN npx prisma generate --schema=./backend/prisma/schema.prisma
+
+# Build de l'application NestJS
 RUN pnpm --filter backend build
 
+# ─── Runner ───────────────────────────────────────────────
 FROM node:20-alpine AS runner
 WORKDIR /app
-RUN npm install -g pnpm
 
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=builder /app/backend/package.json ./backend/package.json
-COPY --from=builder /app/backend/dist ./backend/dist
-COPY --from=builder /app/backend/prisma ./backend/prisma
-COPY --from=builder /app/backend/start.sh ./backend/start.sh
+# Copie de tout l'environnement nécessaire
+COPY --from=builder /app ./
 
+# On se place dans le dossier backend pour l'exécution
 WORKDIR /app/backend
+
+# S'assurer que le script de démarrage est exécutable
 RUN chmod +x ./start.sh
 
 EXPOSE 3001
