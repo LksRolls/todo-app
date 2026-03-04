@@ -19,13 +19,13 @@ RUN pnpm --filter frontend build
 FROM node:20-alpine AS runner
 WORKDIR /app/frontend
 
-# Copie sécurisée : on crée le dossier public s'il n'existe pas
+# Sécurité pour le dossier public
 RUN mkdir -p public
 
 COPY --from=builder /app/frontend/package.json ./
 COPY --from=builder /app/frontend/node_modules ./node_modules
 COPY --from=builder /app/frontend/.next ./.next
-# On essaie de copier public, si ça échoue (dossier absent), Docker continue sans planter
+# Le '*' évite de planter si le dossier est vide
 COPY --from=builder /app/frontend/public* ./public/
 
 EXPOSE 3000

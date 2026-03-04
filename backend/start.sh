@@ -1,14 +1,14 @@
 #!/bin/sh
 set -e
 
-# On s'assure d'être dans le bon dossier
+# Le WORKDIR dans le Dockerfile est déjà /app/backend, 
+# mais on assure le coup
 cd /app/backend
 
-echo "--- 🐘 Running Prisma migrations ---"
-# Utilise pnpm pour être cohérent avec ton installation
-# On spécifie le schéma explicitement au cas où
-pnpm prisma migrate deploy --schema=./prisma/schema.prisma
+echo "--- Running Prisma migrations ---"
+# Utilisation de npx (plus léger ici) ou pnpm
+npx prisma migrate deploy
 
-echo "--- 🚀 Starting NestJS Server ---"
-# exec permet au processus Node de récupérer le PID 1 (gestion des signaux Unix)
-exec node dist/main
+echo "--- Starting NestJS Server ---"
+# Ajout de .js à la fin de main
+exec node dist/main.js
