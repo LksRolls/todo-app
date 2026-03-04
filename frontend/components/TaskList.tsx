@@ -113,7 +113,7 @@ export function TaskList({ groupId, onTaskChange }: TaskListProps) {
             if (e.key === 'Enter') handleAdd();
             if (e.key === 'Escape') setNewTitle('');
           }}
-          placeholder="Ajouter une t&acirc;che..."
+          placeholder="Ajouter une tâche..."
           className="w-full bg-bg-surface border border-border rounded-card px-5 py-4 text-text-primary placeholder:text-text-secondary/50 transition-colors focus:border-accent"
         />
       </div>

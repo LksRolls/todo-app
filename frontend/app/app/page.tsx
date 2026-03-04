@@ -37,8 +37,8 @@ export default function AppPage() {
     const handler = (e: CustomEvent) => {
       setSelectedGroupId(e.detail.groupId);
     };
-    window.addEventListener('select-group' as any, handler);
-    return () => window.removeEventListener('select-group' as any, handler);
+    window.addEventListener('select-group', handler as EventListener);
+    return () => window.removeEventListener('select-group', handler as EventListener);
   }, []);
 
   // Listen for groups refresh

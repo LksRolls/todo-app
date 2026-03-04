@@ -21,8 +21,9 @@ export default function LoginPage() {
     try {
       await login(email, password);
       router.push('/app');
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message || 'Login failed');
     } finally {
       setSubmitting(false);
     }
