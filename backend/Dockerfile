@@ -1,16 +1,23 @@
+# ─── Builder ──────────────────────────────────────────────
 FROM node:20-alpine AS builder
 WORKDIR /app
 
 RUN npm install -g pnpm
 
-COPY backend/package.json ./package.json
-COPY pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY backend/ ./backend/
+# 1. Copier les fichiers de configuration du workspace
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY backend/package.json ./backend/
+COPY frontend/package.json ./frontend/
 
-WORKDIR /app/backend
+# 2. Installation à la racine (indispensable pour le lien entre packages)
 RUN pnpm install --frozen-lockfile
-RUN pnpm prisma generate
-RUN pnpm build
+
+# 3. Copier le code source et générer Prisma
+COPY backend/ ./backend/
+RUN pnpm --filter backend exec prisma generate
+
+# 4. Build du backend depuis la racine via le filtre
+RUN pnpm --filter backend build
 
 # ─── Runner ───────────────────────────────────────────────
 FROM node:20-alpine AS runner
@@ -18,16 +25,23 @@ WORKDIR /app
 
 RUN npm install -g pnpm
 
-COPY --from=builder /app/backend/package.json ./package.json
-COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
+# Copie des fichiers nécessaires pour réinstaller uniquement la prod
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY backend/package.json ./backend/
+
+# Installation des dépendances de production à la racine
+ENV NODE_ENV=production
 RUN pnpm install --frozen-lockfile --prod
 
-COPY --from=builder /app/backend/dist ./dist
-COPY --from=builder /app/backend/prisma ./prisma
-COPY --from=builder /app/backend/node_modules/.prisma ./node_modules/.prisma
+# Récupération des builds et de Prisma
+COPY --from=builder /app/backend/dist ./backend/dist
+COPY --from=builder /app/backend/prisma ./backend/prisma
+COPY --from=builder /app/backend/node_modules/.prisma ./backend/node_modules/.prisma
 
-COPY backend/start.sh ./
-RUN chmod +x start.sh
+# Script de démarrage
+COPY backend/start.sh ./backend/start.sh
+RUN chmod +x ./backend/start.sh
 
+# On reste à la RACINE pour l'exécution, ou on ajuste le chemin du script
 EXPOSE 3001
-CMD ["./start.sh"]
+CMD ["./backend/start.sh"]
