@@ -14,15 +14,19 @@ ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 RUN pnpm --filter frontend build
-RUN pnpm --filter frontend deploy --prod /prod/frontend
 
 # ─── Runner ───────────────────────────────────────────────
 FROM node:20-alpine AS runner
 WORKDIR /app/frontend
 
-COPY --from=builder /prod/frontend ./
+# Copie sécurisée : on crée le dossier public s'il n'existe pas
+RUN mkdir -p public
+
+COPY --from=builder /app/frontend/package.json ./
+COPY --from=builder /app/frontend/node_modules ./node_modules
 COPY --from=builder /app/frontend/.next ./.next
+# On essaie de copier public, si ça échoue (dossier absent), Docker continue sans planter
+COPY --from=builder /app/frontend/public* ./public/
 
 EXPOSE 3000
-# Commande standard pour Next.js
 CMD ["npx", "next", "start"]
