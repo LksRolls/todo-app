@@ -1,6 +1,8 @@
 # ─── Builder ──────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
+RUN echo "Construction du 04-03-2026_v2"
+
 # Force l'installation de Prisma 5 et pnpm
 RUN npm install -g pnpm@9.15.4 prisma@5.22.0
 
