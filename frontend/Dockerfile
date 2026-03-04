@@ -3,14 +3,16 @@ WORKDIR /app
 
 RUN npm install -g pnpm
 
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+COPY frontend/package.json ./package.json
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY frontend/ ./frontend/
 
-COPY . .
+WORKDIR /app/frontend
 
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
+RUN pnpm install --frozen-lockfile
 RUN NEXT_STANDALONE=true pnpm build
 
 # ─── Runner ───────────────────────────────────────────────
@@ -19,9 +21,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+COPY --from=builder /app/frontend/.next/standalone ./
+COPY --from=builder /app/frontend/.next/static ./.next/static
+COPY --from=builder /app/frontend/public ./public
 
 EXPOSE 3000
 CMD ["node", "server.js"]
