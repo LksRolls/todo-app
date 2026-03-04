@@ -1,31 +1,37 @@
-# ON CHANGE LE NOM DE L'ETAPE POUR CASSER LE CACHE
-FROM node:20-alpine AS construction_neuve
-RUN npm install -g pnpm@9.15.4
-
+# ─── Builder ──────────────────────────────────────────────
+FROM node:20-alpine AS builder
 WORKDIR /app
 
-# On ne copie que les fichiers nécessaires pour l'install d'abord
+# Installation de pnpm
+RUN npm install -g pnpm@9.15.4
+
+# Copie des fichiers de configuration
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
-# Installation sans check de lockfile pour forcer le passage
+# Installation de toutes les dépendances (dont Prisma 5)
 RUN pnpm install --no-frozen-lockfile
 
-# Copie du reste
+# Copie de tout le code source
 COPY . .
 
-# On force l'installation de Prisma 5 localement juste avant le generate
-RUN cd backend && npm install prisma@5.22.0 @prisma/client@5.22.0
+# Génération du client Prisma
 RUN npx prisma generate --schema=./backend/prisma/schema.prisma
 
+# Build du backend
 RUN pnpm --filter backend build
 
-FROM node:20-alpine AS runner_neuf
+# ─── Runner ───────────────────────────────────────────────
+FROM node:20-alpine AS runner
 WORKDIR /app
-COPY --from=construction_neuve /app ./
+
+# On copie tout pour préserver le monorepo
+COPY --from=builder /app ./
 
 WORKDIR /app/backend
+
+# Rendre le script exécutable (au cas où)
 RUN chmod +x ./start.sh
 
 EXPOSE 3001
