@@ -87,8 +87,11 @@ export class AuthController {
   async googleCallback(@Req() req: Request, @Res() res: Response) {
     const tokens = await this.authService.googleLogin(req.user as any);
     this.setRefreshCookie(res, tokens.refreshToken);
+    const frontendUrl = (
+      process.env.ALLOWED_ORIGINS || 'http://localhost:3000'
+    ).split(',')[0];
     return res.redirect(
-      `http://localhost:3000/app?token=${tokens.accessToken}`,
+      `${frontendUrl}/app?token=${tokens.accessToken}`,
     );
   }
 
