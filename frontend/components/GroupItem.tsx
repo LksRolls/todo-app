@@ -1,7 +1,5 @@
 'use client';
 
-import { useState } from 'react';
-
 interface GroupItemProps {
   group: {
     id: string;
@@ -22,13 +20,9 @@ export function GroupItem({
   onDelete,
   className = '',
 }: GroupItemProps) {
-  const [hovering, setHovering] = useState(false);
-
   return (
     <button
       onClick={onSelect}
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-input transition-colors group ${
         selected
           ? 'bg-accent/10 text-accent'
@@ -45,14 +39,13 @@ export function GroupItem({
           {group._count.tasks}
         </span>
       )}
-      {hovering && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          className="text-text-secondary hover:text-priority-high transition-colors"
-        >
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        className="opacity-0 group-hover:opacity-100 md:opacity-30 md:group-hover:opacity-100 text-text-secondary hover:text-priority-high transition-all shrink-0"
+      >
           <svg
             width="14"
             height="14"
@@ -67,7 +60,6 @@ export function GroupItem({
             <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
           </svg>
         </button>
-      )}
     </button>
   );
 }

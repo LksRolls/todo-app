@@ -17,6 +17,11 @@ export class UpdateTaskDto {
   title?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  notes?: string;
+
+  @IsOptional()
   @IsEnum(Priority)
   priority?: Priority;
 

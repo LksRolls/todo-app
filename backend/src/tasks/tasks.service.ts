@@ -34,6 +34,7 @@ export class TasksService {
         userId,
         groupId: dto.groupId,
         title: dto.title,
+        notes: dto.notes || null,
         priority: dto.priority || 'MEDIUM',
         order: (maxOrder._max.order ?? -1) + 1,
       },

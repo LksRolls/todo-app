@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
 export interface Task {
   id: string;
   title: string;
+  notes?: string;
   status: 'ACTIVE' | 'COMPLETED' | 'ARCHIVED';
   priority: 'LOW' | 'MEDIUM' | 'HIGH';
   order: number;
@@ -17,6 +17,7 @@ interface TaskItemProps {
   task: Task;
   onUpdate: (data: Partial<Task>) => void;
   onDelete: () => void;
+  onOpenDetail?: () => void;
   className?: string;
 }
 
@@ -30,9 +31,9 @@ export function TaskItem({
   task,
   onUpdate,
   onDelete,
+  onOpenDetail,
   className = '',
 }: TaskItemProps) {
-  const [hovering, setHovering] = useState(false);
   const isCompleted = task.status === 'COMPLETED';
 
   const {
@@ -61,8 +62,6 @@ export function TaskItem({
       ref={setNodeRef}
       style={style}
       {...attributes}
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
       className={`group flex items-center gap-3 bg-bg-surface border border-border rounded-card px-4 py-3.5 transition-colors hover:border-accent/20 ${className}`}
     >
       {/* Drag handle */}
@@ -118,23 +117,47 @@ export function TaskItem({
         )}
       </button>
 
-      {/* Title */}
-      <span
-        className={`flex-1 text-sm transition-colors ${
+      {/* Title — click to open detail */}
+      <button
+        onClick={onOpenDetail}
+        className={`flex-1 text-left text-sm transition-colors ${
           isCompleted
             ? 'text-text-completed line-through decoration-accent/40'
-            : 'text-text-primary'
+            : 'text-text-primary hover:text-accent'
         }`}
       >
-        {task.title}
-      </span>
+        <span>{task.title}</span>
+      </button>
 
-      {/* Delete button */}
-      {hovering && (
-        <button
-          onClick={onDelete}
-          className="text-text-secondary hover:text-priority-high transition-colors"
-        >
+      {/* Notes indicator */}
+      {task.notes && (
+        <span className="text-text-secondary/50" title="Cette tâche a des notes">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+            <polyline points="14,2 14,8 20,8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+          </svg>
+        </span>
+      )}
+
+      {/* Delete button — always visible (subtle), brighter on hover */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        className="opacity-0 group-hover:opacity-100 md:opacity-30 md:group-hover:opacity-100 text-text-secondary hover:text-priority-high transition-all shrink-0"
+      >
           <svg
             width="14"
             height="14"
@@ -149,7 +172,6 @@ export function TaskItem({
             <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
           </svg>
         </button>
-      )}
     </div>
   );
 }

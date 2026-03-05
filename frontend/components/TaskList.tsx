@@ -16,16 +16,29 @@ import {
 } from '@dnd-kit/sortable';
 import api from '@/lib/api';
 import { TaskItem, Task } from '@/components/TaskItem';
+import { TaskDetailModal } from '@/components/TaskDetailModal';
 
 interface TaskListProps {
   groupId: string;
   onTaskChange: () => void;
 }
 
+const priorityOptions: {
+  value: Task['priority'];
+  color: string;
+  label: string;
+}[] = [
+  { value: 'LOW', color: 'var(--priority-low)', label: 'Basse' },
+  { value: 'MEDIUM', color: 'var(--priority-medium)', label: 'Moyenne' },
+  { value: 'HIGH', color: 'var(--priority-high)', label: 'Haute' },
+];
+
 export function TaskList({ groupId, onTaskChange }: TaskListProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTitle, setNewTitle] = useState('');
+  const [newPriority, setNewPriority] = useState<Task['priority']>('MEDIUM');
   const [showCompleted, setShowCompleted] = useState(false);
+  const [detailTask, setDetailTask] = useState<Task | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -50,8 +63,13 @@ export function TaskList({ groupId, onTaskChange }: TaskListProps) {
   const handleAdd = async () => {
     if (!newTitle.trim()) return;
     try {
-      await api.post('/tasks', { groupId, title: newTitle.trim() });
+      await api.post('/tasks', {
+        groupId,
+        title: newTitle.trim(),
+        priority: newPriority,
+      });
       setNewTitle('');
+      setNewPriority('MEDIUM');
       await fetchTasks();
       onTaskChange();
     } catch {
@@ -102,20 +120,52 @@ export function TaskList({ groupId, onTaskChange }: TaskListProps) {
     }
   };
 
+  const handleDetailSave = async (data: Partial<Task>) => {
+    if (!detailTask) return;
+    await handleUpdate(detailTask.id, data);
+  };
+
   return (
     <div className="space-y-4">
-      {/* Add task input */}
+      {/* Add task input with priority selector */}
       <div className="animate-fade-in-up">
-        <input
-          value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleAdd();
-            if (e.key === 'Escape') setNewTitle('');
-          }}
-          placeholder="Ajouter une tâche..."
-          className="w-full bg-bg-surface border border-border rounded-card px-5 py-4 text-text-primary placeholder:text-text-secondary/50 transition-colors focus:border-accent"
-        />
+        <div className="flex items-center gap-2 bg-bg-surface border border-border rounded-card px-4 py-3 transition-colors focus-within:border-accent">
+          {/* Priority dots */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {priorityOptions.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setNewPriority(p.value)}
+                title={p.label}
+                className={`w-3 h-3 rounded-full transition-all ${
+                  newPriority === p.value
+                    ? 'ring-2 ring-offset-1 ring-offset-bg-surface scale-110'
+                    : 'opacity-35 hover:opacity-70'
+                }`}
+                style={{
+                  backgroundColor: p.color,
+                  ...(newPriority === p.value
+                    ? { boxShadow: `0 0 0 2px var(--bg-surface), 0 0 0 4px ${p.color}` }
+                    : {}),
+                }}
+              />
+            ))}
+          </div>
+
+          <input
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleAdd();
+              if (e.key === 'Escape') {
+                setNewTitle('');
+                setNewPriority('MEDIUM');
+              }
+            }}
+            placeholder="Ajouter une tâche..."
+            className="flex-1 bg-transparent text-text-primary placeholder:text-text-secondary/50 outline-none py-1"
+          />
+        </div>
       </div>
 
       {/* Active tasks */}
@@ -135,6 +185,7 @@ export function TaskList({ groupId, onTaskChange }: TaskListProps) {
                 task={task}
                 onUpdate={(data) => handleUpdate(task.id, data)}
                 onDelete={() => handleDelete(task.id)}
+                onOpenDetail={() => setDetailTask(task)}
                 className={`animate-fade-in-up stagger-${Math.min(i + 1, 5)}`}
               />
             ))}
@@ -181,11 +232,21 @@ export function TaskList({ groupId, onTaskChange }: TaskListProps) {
                   task={task}
                   onUpdate={(data) => handleUpdate(task.id, data)}
                   onDelete={() => handleDelete(task.id)}
+                  onOpenDetail={() => setDetailTask(task)}
                 />
               ))}
             </div>
           )}
         </div>
+      )}
+
+      {/* Task detail modal */}
+      {detailTask && (
+        <TaskDetailModal
+          task={detailTask}
+          onSave={handleDetailSave}
+          onClose={() => setDetailTask(null)}
+        />
       )}
     </div>
   );
